@@ -64,8 +64,12 @@ class GammaSim():
     
     def load_sim_config(self):
         with open(Constants.simulation_config_path,"r") as file:
-            data = json.loads(file)
-            self.source_location = [int(*data["SourceLocations"][0]),0]
+            data = json.load(file)
+            self.source_location = []
+            for i in data["SourceLocations"][0]:
+                self.source_location.append(int(i))
+            self.source_location.append(0)
+            # self.source_location = [int(*data["SourceLocations"][0]),0]
             self.bot_size = {"Length":int(data["RobotSizeLength"]),"Width":int(data["RobotSizeWidth"])}
         
     def create_geometry(self):
@@ -131,7 +135,7 @@ class GammaSim():
     
     def evaluate_sources(self):
         openmc.config['chain_file'] = Constants.load_xml_path
-
+        print(self.source_location)
         self.init_radon_strength = 10000
         self.init_radon_time = 100*60*60
 
@@ -143,7 +147,7 @@ class GammaSim():
             else:
                 numAtoms = bq_to_atoms(self.init_radon_strength, 3.823 * 24 * 60 * 60) * RnSources_t0[element]
                 self.radon_sources.append(openmc.Source())
-                self.radon_sources[index].space = stats.Point((-40.0, 0.0, 0.0))
+                self.radon_sources[index].space = stats.Point(self.source_location)
                 self.radon_sources[index].angle = stats.Isotropic()
                 self.radon_sources[index].energy = openmc.data.decay_photon_energy(rd_to_mc(element))
                 self.radon_sources[index].particle = 'photon'
@@ -191,7 +195,7 @@ class GammaSim():
         openmc.run(path_input=Constants.simulation_meta_data_dir,cwd=Constants.simulation_meta_data_dir)
         self.sp = openmc.StatePoint(Constants.statepoint_h5_path)
         absorption_data = self.sp.get_tally(name='gamma_absorption')
-        return {"absorption": absorption_data.sum_sq,"debugging": absorption_data}
+        return {"absorption": absorption_data.sum,"debugging": absorption_data}
     
     def run_sim(self):
         openmc.run(Constants.simulation_meta_data_dir)

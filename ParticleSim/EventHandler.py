@@ -53,10 +53,8 @@ class EventHandler:
 if __name__ == "__main__":
     root_path = Path("../SimulationMetadata")
     
-    try:
+    if not os.path.exists(Constants.simulation_meta_data_dir):
         os.mkdir(Constants.simulation_meta_data_dir)
-    except Exception():
-        pass
     
     if (os.path.isfile(Constants.simulation_config_path)):
         response = input("geometry file detected would you like to reload settings (y/n)?")
@@ -73,5 +71,6 @@ if __name__ == "__main__":
     print(root_path)
     m_sampler = PoseSampler(4)
     m_sim = GammaSim()
+    m_sim.load_sim_config()
     m_handler = EventHandler(m_sampler,m_sim,root_path)
-    m_handler.default_exec(start_location,5,batches)
+    m_handler.default_exec(start_location,3,batches)
