@@ -244,9 +244,9 @@ class GammaSim():
 
         
     def clean_workspace(self):
-        for file in glob(f"{str(Constants.simulation_meta_data_dir)}*h5"):
+        for file in glob(f"{str(Constants.simulation_meta_data_dir)}*.h5"):
             os.remove(file)
-        for file in glob(f"{str(Constants.simulation_meta_data_dir)}*out"):
+        for file in glob(f"{str(Constants.simulation_meta_data_dir)}*.out"):
             os.remove(file)
         try_catch_simple(lambda:os.remove(str(Constants.geometry_xml_path)))
         try_catch_simple(lambda:os.remove(str(Constants.materials_xml_path)))
