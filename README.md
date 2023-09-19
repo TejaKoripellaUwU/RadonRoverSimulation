@@ -1,4 +1,4 @@
-# Design Document: GAYDARS (Gamma accumulation yield detector autonomous robot simulator):
+# Design Document: GAYDAR (Gamma Accumulation Yield Detecting Autonomous Robot):
 
 Create a pygame simulation of a a robot navigating an enviornment to identify a single source of gamma radiation
 
