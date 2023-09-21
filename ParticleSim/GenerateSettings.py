@@ -27,7 +27,7 @@ def main():
         "NumBatches":num_batches
     }
 
-    with open(Constants.simulation_config_path,"w") as file:
+    with open(Constants.universe_geometry_path,"w") as file:
         file.write(json.dumps(simulation_config))
         print("Config file written")
 

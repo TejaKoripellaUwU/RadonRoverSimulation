@@ -3,6 +3,7 @@ import math
 import time
 import Constants
 import pygame
+import Utils
 
 SCREEN_SIZE = (854, 480)
 SURFACE_COLOR = (167, 255, 100)
@@ -22,20 +23,6 @@ with open(Constants.universe_geometry_path, "r") as file:
     ROBOT_COORDINATES = (int(file["RobotStartX"]), int(file["RobotStartY"]))
     SOURCE_COORDINATES = (int(file["SourceLocations"][0][0]),int(file["SourceLocations"][0][1]))
     UNIVERSE_SIZE = (int(file["UniverseSize"][0]),int(file["UniverseSize"][1]))
-
-
-# size = (150, 150)
-# robot_image = pygame.transform.scale(robot_image, size)
-
-def _clamp(value, limits):
-    lower, upper = limits
-    if value is None:
-        return None
-    elif (upper is not None) and (value > upper):
-        return upper
-    elif (lower is not None) and (value < lower):
-        return lower
-    return value
 
 
 def openmc_to_pygame(x, y):
@@ -113,8 +100,8 @@ class Robot():
             # time.sleep(0.1)
 
     def set_chassis_speed(self, vel_x, vel_y, update_func):
-        vel_x = _clamp(vel_x, (-self.max_vel, self.max_vel))
-        vel_y = _clamp(vel_y, (-self.max_vel, self.max_vel))
+        vel_x = Utils.clamp(vel_x, (-self.max_vel, self.max_vel))
+        vel_y = Utils.clamp(vel_y, (-self.max_vel, self.max_vel))
         self.init_x += vel_x
         self.init_y += vel_y
         update_func()

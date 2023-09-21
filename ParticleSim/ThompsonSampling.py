@@ -3,22 +3,28 @@ import math
 import Constants
 import sys
 import os
+import numpy as np
+import matplotlib.pyplot as plt
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)),".."))
 
 from scipy.stats import beta
+import Utils
 
 class PoseSampler():
     def __init__(self,init_botpose) -> None:
         self.botpose = init_botpose
         self.adjacency_list = [270,180,90,0]
         self.betas = None
-        self.pos_history ={"travel_coords":[init_botpose],"best_guess":[]}
+        self.pos_history ={"travel_coords":[init_botpose],"best_guess":[],"total_flux":[]}
         self.current_pos = init_botpose
 
     
-    def vector_based(self,input):
+    def vector_based(self,input,step_range):
         absorption = [i[0][0]for i in input["absorption"]]
+
+        self.pos_history["total_flux"].append(sum(absorption))
+
         maximum = (absorption[0],0)
         
         for index,element in enumerate(absorption):
@@ -40,10 +46,14 @@ class PoseSampler():
             final_deg_value = modified_adjacency_list[maximum[1]]-(90-normalized_absorption_deg)
         else: 
             final_deg_value = modified_adjacency_list[maximum[1]]+(90-normalized_absorption_deg)
+        
+        magnitude = Utils.clamp(1/(2*self.pos_history["total_flux"][-1]),step_range)
             
-        return final_deg_value
+        return final_deg_value, magnitude
     
     def calculate_robot_pose(self,polar_degrees, magnitude):
+
+
         x = magnitude*math.cos(math.radians(polar_degrees))
         y = magnitude*math.sin(math.radians(polar_degrees))
         
@@ -62,6 +72,19 @@ class PoseSampler():
         self.update_pose_json()
         return centroid
     
+    def create_plot(self):
+        position_bins = range(len(self.pos_history["travel_coords"]))[1:]
+        flux_bins = self.pos_history["total_flux"]
+        plt.figure()
+        plt.semilogy(position_bins,flux_bins)
+        plt.xlabel('Robot Evaluation Point')
+        plt.ylabel('Flux (Photons/cm^2 - s)')
+        plt.title('Pulse Height Values')
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(Constants.graphs_folder/"FluxGraphRobotPos")
+        
+
     def update_pose_json(self):
         with open(Constants.pos_log_path,"w") as position_log:
             position_log.write(json.dumps(self.pos_history))

@@ -22,7 +22,7 @@ class EventHandler:
         
 
     
-    def default_exec(self, init_botpose, magnitude, batches):
+    def default_exec(self, clamp, batches):
         for i in range(batches):
             sim_results = self.sim.get_full_flux(self.sampler.current_pos)
             zero_counter = 0
@@ -34,12 +34,14 @@ class EventHandler:
             if zero_counter == len(sim_results["absorption"]):
                 return "Failed execution due to lack of particles"
             
-            vector_theta = self.sampler.vector_based(sim_results)
+            vector_theta, magnitude = self.sampler.vector_based(sim_results,clamp)
             self.sampler.calculate_robot_pose(vector_theta, magnitude)
 
             print(f'batch {i+1} simulated')
         
         self.sampler.retrieve_best_guess_simple_avg()
+        self.sampler.create_plot()
+
         return "Successful Execution"
     
     def clear_debug(self):
@@ -53,14 +55,14 @@ if __name__ == "__main__":
     if not os.path.exists(Constants.simulation_meta_data_dir):
         os.mkdir(Constants.simulation_meta_data_dir)
     
-    if (os.path.isfile(Constants.simulation_config_path)):
+    if (os.path.isfile(Constants.universe_geometry_path)):
         response = input("geometry file detected would you like to reload settings (y/n)?")
-        while response != ("y" and "n"):
+        while response != "y" and response != "n":
             response = input("geometry file detected would you like to reload settings (y/n)?")
         if response == "y":
             GenerateSettings.main()
             
-    with open(str(Constants.simulation_config_path),"r") as file:
+    with open(str(Constants.universe_geometry_path),"r") as file:
         data = json.load(file)
         start_location = {"x":int(data["RobotStartX"]),"y":int(data["RobotStartY"])}
         batches = int(data["NumBatches"])
@@ -70,5 +72,5 @@ if __name__ == "__main__":
     m_sim.load_sim_config()
     m_handler = EventHandler(m_sampler,m_sim)
     m_handler.clear_debug()
-    m_handler.default_exec(start_location,7,batches)
+    m_handler.default_exec((2,9),batches)
     

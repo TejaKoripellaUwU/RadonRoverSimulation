@@ -73,7 +73,7 @@ class GammaSim():
         self.mats.export_to_xml(str(Constants.materials_xml_path))
     
     def load_sim_config(self):
-        with open(Constants.simulation_config_path,"r") as file:
+        with open(Constants.universe_geometry_path,"r") as file:
             data = json.load(file)
             self.source_location = []
             for i in data["SourceLocations"][0]:
