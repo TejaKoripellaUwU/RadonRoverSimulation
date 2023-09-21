@@ -1,18 +1,27 @@
-# %%
+
 from glob import glob
 import math
 from openmc import stats
 import os
+import sys
+
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)),".."))
+
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
 import openmc
 import openmc.data
 import numpy as np
 from scipy.constants import Avogadro
+from PIL import Image
 from pathlib import Path
 import radioactivedecay as rd
 import json
 import Constants
+import warnings
+
+warnings.simplefilter('ignore',openmc.IDWarning)
 
 def get_decay_percentage(source,time,strength):
     source = rd.Inventory({source:strength},"Bq").decay(time,"h")
@@ -37,7 +46,7 @@ def chunk_into_n(lst, n):
 def try_catch_simple(func):
     try:
         func()
-    except Exception as e:
+    except Exception:
         pass
 
 
@@ -46,7 +55,8 @@ class GammaSim():
         self.temp_graph = False
         self.radon_sources = []
         self.bot_size = {"Length":7, "Width":7}
-        self.geiger_tube_radius = 1
+        self.geiger_tube_radius = 0.5
+        self.execution_index = 0
         self.source_location = [-25,0,0]
         
     
@@ -69,6 +79,7 @@ class GammaSim():
             for i in data["SourceLocations"][0]:
                 self.source_location.append(int(i))
             self.source_location.append(0)
+            
             # self.source_location = [int(*data["SourceLocations"][0]),0]
             self.bot_size = {"Length":int(data["RobotSizeLength"]),"Width":int(data["RobotSizeWidth"])}
         
@@ -76,24 +87,31 @@ class GammaSim():
 
         self.allCells = []
         
-        cyl_1 = openmc.XCylinder(y0=self.bot_pose["y"]-(self.bot_size["Width"]+self.geiger_tube_radius*2)/2,z0=0,r = self.geiger_tube_radius,boundary_type = "transmission")
-        cyl_2 = openmc.YCylinder(x0=self.bot_pose["x"]-(self.bot_size["Length"]+self.geiger_tube_radius*2)/2,z0=0,r = self.geiger_tube_radius,boundary_type = "transmission")
-        cyl_3 = openmc.XCylinder(y0=self.bot_pose["y"]+(self.bot_size["Width"]+self.geiger_tube_radius*2)/2,z0=0,r = self.geiger_tube_radius,boundary_type = "transmission")
-        cyl_4 = openmc.YCylinder(x0=self.bot_pose["x"]+(self.bot_size["Length"]+self.geiger_tube_radius*2)/2,z0=0,r = self.geiger_tube_radius,boundary_type = "transmission")        
+        cyl_1 = openmc.XCylinder(y0=self.bot_pose["y"]-(self.bot_size["Width"]+self.geiger_tube_radius)/2,z0=0,r = self.geiger_tube_radius,boundary_type = "transmission")
+        cyl_2 = openmc.YCylinder(x0=self.bot_pose["x"]-(self.bot_size["Length"]+self.geiger_tube_radius)/2,z0=0,r = self.geiger_tube_radius,boundary_type = "transmission")
+        cyl_3 = openmc.XCylinder(y0=self.bot_pose["y"]+(self.bot_size["Width"]+self.geiger_tube_radius)/2,z0=0,r = self.geiger_tube_radius,boundary_type = "transmission")
+        cyl_4 = openmc.YCylinder(x0=self.bot_pose["x"]+(self.bot_size["Length"]+self.geiger_tube_radius)/2,z0=0,r = self.geiger_tube_radius,boundary_type = "transmission")        
 
         plane_1 = openmc.XPlane(x0 = self.bot_pose["x"]-(self.bot_size["Length"])/2)
         plane_2 = openmc.XPlane(x0 = self.bot_pose["x"]+(self.bot_size["Length"])/2)
         plane_3 = openmc.YPlane(y0 = self.bot_pose["y"]-(self.bot_size["Width"])/2)
         plane_4 = openmc.YPlane(y0 = self.bot_pose["y"]+(self.bot_size["Width"])/2)
-    
-        ray_blocker_1 = openmc.rectangular_prism(axis = "z", width = self.bot_size["Length"], height = 1, origin = (self.bot_pose["x"],self.bot_pose["y"]-self.bot_size["Width"]/2),boundary_type="vacuum")
-        ray_blocker_2 = openmc.rectangular_prism(axis = "z", width = 1, height = self.bot_size["Width"], origin = (self.bot_pose["x"]-self.bot_size["Length"]/2,self.bot_pose["y"]),boundary_type="vacuum")
-        ray_blocker_3 = openmc.rectangular_prism(axis = "z", width = self.bot_size["Length"], height = 1, origin = (self.bot_pose["x"],self.bot_pose["y"]+self.bot_size["Width"]/2),boundary_type="vacuum")
-        ray_blocker_4 = openmc.rectangular_prism(axis = "z", width = 1, height = self.bot_size["Width"], origin = (self.bot_pose["x"]+self.bot_size["Length"]/2,self.bot_pose["y"]),boundary_type="vacuum")
 
+        z_plane_top = openmc.ZPlane(z0 = 3)
+        z_plane_bottom = openmc.ZPlane(z0 = 0)
+    
+        # ray_blocker_1 = openmc.rectangular_prism(axis = "z", width = self.bot_size["Length"], height = 1, origin = (self.bot_pose["x"],self.bot_pose["y"]-self.bot_size["Width"]/2),boundary_type="vacuum")
+        # ray_blocker_2 = openmc.rectangular_prism(axis = "z", width = 1, height = self.bot_size["Width"], origin = (self.bot_pose["x"]-self.bot_size["Length"]/2,self.bot_pose["y"]),boundary_type="vacuum")
+        # ray_blocker_3 = openmc.rectangular_prism(axis = "z", width = self.bot_size["Length"], height = 1, origin = (self.bot_pose["x"],self.bot_pose["y"]+self.bot_size["Width"]/2),boundary_type="vacuum")
+        # ray_blocker_4 = openmc.rectangular_prism(axis = "z", width = 1, height = self.bot_size["Width"], origin = (self.bot_pose["x"]+self.bot_size["Length"]/2,self.bot_pose["y"]),boundary_type="vacuum")
+        
+        full_blocker = openmc.rectangular_prism(axis = "z", width = self.bot_size["Length"], height = self.bot_size["Width"], origin = (self.bot_pose["x"],self.bot_pose["y"]),boundary_type="vacuum")
+        blocking_region = full_blocker & -z_plane_top & +z_plane_bottom
+        source_visual = openmc.Sphere(15,10,0,7)
+        
         self.cell_1 = openmc.Cell(cell_id = 10)
         self.cell_1.region = -cyl_1 & +plane_1 & -plane_2
-        self.cell_1.fill = self.gas
+        self.cell_1.fill = self.gas      
 
         self.cell_2 = openmc.Cell(cell_id = 20)
         self.cell_2.region = -cyl_2 & +plane_3 & -plane_4
@@ -112,10 +130,12 @@ class GammaSim():
         self.allCells.append(self.cell_3)
         self.allCells.append(self.cell_4)
 
-        blocker_cell_1 = openmc.Cell(region=ray_blocker_1)
-        blocker_cell_2 = openmc.Cell(region=ray_blocker_2)
-        blocker_cell_3 = openmc.Cell(region=ray_blocker_3)
-        blocker_cell_4 = openmc.Cell(region=ray_blocker_4)
+        # blocker_cell_1 = openmc.Cell(region=ray_blocker_1)
+        # blocker_cell_2 = openmc.Cell(region=ray_blocker_2)
+        # blocker_cell_3 = openmc.Cell(region=ray_blocker_3)
+        # blocker_cell_4 = openmc.Cell(region=ray_blocker_4)
+
+        full_blocker_cell = openmc.Cell(region=blocking_region)
 
         outer_surface = openmc.Sphere(r=150.0)
         outer_surface.boundary_type = 'vacuum'
@@ -124,18 +144,31 @@ class GammaSim():
         inner_surface.boundary_type = 'vacuum'
 
         empty_space = openmc.Cell()
-        empty_space.region = -inner_surface & ~(-cyl_1 & +plane_1 & -plane_2) & ~(-cyl_2 & +plane_3 & -plane_4) & ~(-cyl_3 & +plane_1 & -plane_2) & ~(-cyl_4 & +plane_3 & -plane_4)
+        empty_space.region = -inner_surface & ~(-cyl_1 & +plane_1 & -plane_2) & ~(-cyl_2 & +plane_3 & -plane_4) & ~(-cyl_3 & +plane_1 & -plane_2) & ~(-cyl_4 & +plane_3 & -plane_4) & ~(blocking_region)
         empty_space.fill = self.oxygen
         
+        source = openmc.Cell()
+        source.region = -source_visual
+        source.fill = self.gas
+
         universe = openmc.Universe(cells=[self.cell_1,self.cell_2, self.cell_3, self.cell_4,
                                           empty_space,
-                                          blocker_cell_1,blocker_cell_2,blocker_cell_3,blocker_cell_4])
+                                          full_blocker_cell])
+        
         self.geometry = openmc.Geometry(universe)
         self.geometry.export_to_xml(str(Constants.geometry_xml_path))
-    
+        img = universe.plot(width=(150.0, 150.0), origin=(0.0, 0.0, 0.0), basis='xy', color_by='material')
+        
+
+        img.get_figure().savefig(Constants.debug_geometry_dir/f'geometry{self.execution_index}.png')
+
+        # img = Image.fromarray(img)
+        # img.save('geometry.png')
+
+        
     def evaluate_sources(self):
         openmc.config['chain_file'] = Constants.load_xml_path
-        print(self.source_location)
+        # print(self.source_location)
         self.init_radon_strength = 10000
         self.init_radon_time = 100*60*60
 
@@ -192,12 +225,15 @@ class GammaSim():
         self.tallies.export_to_xml(str(Constants.tallies_xml_path))
 
     def get_flux(self):
-        openmc.run(path_input=Constants.simulation_meta_data_dir,cwd=Constants.simulation_meta_data_dir)
+
+        openmc.run(path_input=Constants.simulation_meta_data_dir,cwd=Constants.simulation_meta_data_dir,output=False)
         self.sp = openmc.StatePoint(Constants.statepoint_h5_path)
         absorption_data = self.sp.get_tally(name='gamma_absorption')
+        self.execution_index+=1
         return {"absorption": absorption_data.sum,"debugging": absorption_data}
     
     def run_sim(self):
+
         openmc.run(Constants.simulation_meta_data_dir)
 
         self.sp = openmc.StatePoint(Constants.statepoint_h5_path)
@@ -244,9 +280,9 @@ class GammaSim():
 
         
     def clean_workspace(self):
-        for file in glob(f"{str(Constants.simulation_meta_data_dir)}*.h5"):
+        for file in glob(str(Constants.simulation_meta_data_dir/"*h5")):
             os.remove(file)
-        for file in glob(f"{str(Constants.simulation_meta_data_dir)}*.out"):
+        for file in glob(str(Constants.simulation_meta_data_dir/"*out")):
             os.remove(file)
         try_catch_simple(lambda:os.remove(str(Constants.geometry_xml_path)))
         try_catch_simple(lambda:os.remove(str(Constants.materials_xml_path)))
@@ -256,7 +292,7 @@ class GammaSim():
 
 if __name__ == "__main__":
     g_sim = GammaSim()
-    g_sim.get_full_flux({"x": -9.938664614578116, "y": 1.105868743989469})
+    g_sim.clean_workspace()
 
 
 

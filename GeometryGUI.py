@@ -1,8 +1,7 @@
 import json
 import math
 import time
-from pathlib import Path
-import numpy as np
+import Constants
 import pygame
 
 SCREEN_SIZE = (854, 480)
@@ -18,11 +17,7 @@ radiation_image = pygame.image.load("Sprites/RadiationSource.png")
 radiation_sprite_size = (50, 50)
 radiation_image = pygame.transform.scale(radiation_image, radiation_sprite_size)
 
-SIM_CONFIG_PATH = Path("SimulationMetadata")
-POSITION_DATA_PATH = Path(SIM_CONFIG_PATH / "position_data.json")
-UNIVERSE_GEOMETRY_PATH = Path(SIM_CONFIG_PATH / "universe_geometry.json")
-
-with open(str(UNIVERSE_GEOMETRY_PATH), "r") as file:
+with open(Constants.universe_geometry_path, "r") as file:
     file = json.load(file)
     ROBOT_COORDINATES = (int(file["RobotStartX"]), int(file["RobotStartY"]))
     SOURCE_COORDINATES = (int(file["SourceLocations"][0][0]),int(file["SourceLocations"][0][1]))
@@ -122,13 +117,12 @@ class Robot():
         vel_y = _clamp(vel_y, (-self.max_vel, self.max_vel))
         self.init_x += vel_x
         self.init_y += vel_y
-
         update_func()
 
     def follow_position_data(self, update_func):
-        with open(str(POSITION_DATA_PATH), "r") as data:
+        with open(str(Constants.pos_log_path), "r") as data:
             self.positon_data = json.load(data)
-            for i in self.positon_data:
+            for i in self.positon_data["travel_coords"]:
                 print(fr"{openmc_to_pygame(i['x'], i['y'])}")
                 self.move_to(*openmc_to_pygame(i["x"], i["y"]), update_func)
                 # update_func()
@@ -159,6 +153,7 @@ class Game:
         self.robot = Robot(*openmc_to_pygame(*ROBOT_COORDINATES), 1, self.mainPID, self.screen)
         self.gamma_sources = GammaSource(openmc_to_pygame(*SOURCE_COORDINATES),self.screen)
         self.running = True
+        
         # self.surfs = [self.robot.get_blit()]
 
     def should_quit(self):
