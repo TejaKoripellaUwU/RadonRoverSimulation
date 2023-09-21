@@ -22,7 +22,7 @@ class EventHandler:
         
 
     
-    def default_exec(self, clamp, batches):
+    def default_exec(self, batches):
         for i in range(batches):
             sim_results = self.sim.get_full_flux(self.sampler.current_pos)
             zero_counter = 0
@@ -34,7 +34,7 @@ class EventHandler:
             if zero_counter == len(sim_results["absorption"]):
                 return "Failed execution due to lack of particles"
             
-            vector_theta, magnitude = self.sampler.vector_based(sim_results,clamp)
+            vector_theta, magnitude = self.sampler.vector_based(sim_results)
             self.sampler.calculate_robot_pose(vector_theta, magnitude)
 
             print(f'batch {i+1} simulated')
@@ -67,10 +67,10 @@ if __name__ == "__main__":
         start_location = {"x":int(data["RobotStartX"]),"y":int(data["RobotStartY"])}
         batches = int(data["NumBatches"])
     
-    m_sampler = PoseSampler(start_location)
+    m_sampler = PoseSampler(start_location,(2,11))
     m_sim = GammaSim()
     m_sim.load_sim_config()
     m_handler = EventHandler(m_sampler,m_sim)
     m_handler.clear_debug()
-    m_handler.default_exec((2,9),batches)
+    m_handler.default_exec(batches)
     

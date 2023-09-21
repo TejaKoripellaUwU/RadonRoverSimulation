@@ -5,6 +5,7 @@ import sys
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)),".."))
 
@@ -12,7 +13,8 @@ from scipy.stats import beta
 import Utils
 
 class PoseSampler():
-    def __init__(self,init_botpose) -> None:
+    def __init__(self,init_botpose,clamp) -> None:
+        self.step_range = clamp
         self.botpose = init_botpose
         self.adjacency_list = [270,180,90,0]
         self.betas = None
@@ -20,7 +22,8 @@ class PoseSampler():
         self.current_pos = init_botpose
 
     
-    def vector_based(self,input,step_range):
+    def vector_based(self,input):
+
         absorption = [i[0][0]for i in input["absorption"]]
 
         self.pos_history["total_flux"].append(sum(absorption))
@@ -47,12 +50,11 @@ class PoseSampler():
         else: 
             final_deg_value = modified_adjacency_list[maximum[1]]+(90-normalized_absorption_deg)
         
-        magnitude = Utils.clamp(1/(2*self.pos_history["total_flux"][-1]),step_range)
+        magnitude = Utils.clamp(1/(2*self.pos_history["total_flux"][-1]),self.step_range)
             
         return final_deg_value, magnitude
     
     def calculate_robot_pose(self,polar_degrees, magnitude):
-
 
         x = magnitude*math.cos(math.radians(polar_degrees))
         y = magnitude*math.sin(math.radians(polar_degrees))
@@ -67,10 +69,24 @@ class PoseSampler():
     def retrieve_best_guess_simple_avg(self):
         x = [p["x"] for p in self.pos_history["travel_coords"]]
         y = [p["y"] for p in self.pos_history["travel_coords"]]
-        centroid = (sum(x) / len(self.pos_history["travel_coords"]), sum(y) / len(self.pos_history["travel_coords"]))
+
+        for index,val in enumerate(self.pos_history["total_flux"]):
+            num_rem = 0
+            if 1/(2*val) > self.step_range[1]:
+                x.pop(index-num_rem)
+                y.pop(index-num_rem)
+                num_rem += 1
+
+        centroid = (sum(x) / len(x), sum(y) / len(y))
         self.pos_history["best_guess"] = centroid
         self.update_pose_json()
         return centroid
+    
+    def IQR_filter(self):
+        q1 = pd.DataFrame(self.pos_history["total_flux"]).quantile(0.25)
+        q3 = pd.DataFrame(self.pos_history["total_flux"]).quantile(0.75)
+        iqr = q3-q1
+        return q3 + 1.5*iqr, q1 -1.5*iqr
     
     def create_plot(self):
         position_bins = range(len(self.pos_history["travel_coords"]))[1:]
